@@ -10,10 +10,10 @@ const {
 
 // Add a new alumni record
 const addAlumni = asyncHandler(async (req, res) => {
-  const { user_id, company, job_role, experience } = req.body;
+  const user_id = req.user.id; // 🔥 get from token
+  const { company, job_role, experience } = req.body;
 
   validateRequiredFields([
-    { name: "user_id", value: user_id },
     { name: "company", value: company },
     { name: "job_role", value: job_role },
     { name: "experience", value: experience }
@@ -29,7 +29,7 @@ const addAlumni = asyncHandler(async (req, res) => {
     .from("alumni")
     .insert([
       {
-        user_id,
+        user_id, // ✅ from token
         company: company.trim(),
         job_role: job_role.trim(),
         experience: Number(experience)
@@ -45,7 +45,7 @@ const addAlumni = asyncHandler(async (req, res) => {
   return sendSuccess(res, 201, "Alumni record added successfully", data);
 });
 
-// Get all alumni records
+// Get all alumni records (admin can see all)
 const getAllAlumni = asyncHandler(async (req, res) => {
   const { data, error } = await supabase
     .from("alumni")

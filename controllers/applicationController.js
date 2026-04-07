@@ -11,30 +11,12 @@ const {
 
 const APPLICATION_STATUSES = ["pending", "approved", "rejected"];
 
-const getUserById = async (userId) => {
-  const { data: user, error } = await supabase
-    .from("users")
-    .select("id, role")
-    .eq("id", Number(userId))
-    .maybeSingle();
-
-  if (error) {
-    throw new AppError(error.message, 500);
-  }
-
-  if (!user) {
-    throw new AppError("User not found. Please register first.", 404);
-  }
-
-  return user;
-};
-
-// Create a new application
+// Create a new application (student only)
 const createApplication = asyncHandler(async (req, res) => {
-  const { user_id, admission_type, university, status } = req.body;
+  const user_id = req.user.id; // 🔥 from token
+  const { admission_type, university, status } = req.body;
 
   validateRequiredFields([
-    { name: "user_id", value: user_id },
     { name: "admission_type", value: admission_type },
     { name: "university", value: university }
   ]);
@@ -43,18 +25,14 @@ const createApplication = asyncHandler(async (req, res) => {
     throw new AppError("admission_type and university must be valid text", 400);
   }
 
-  validatePositiveNumber(user_id, "user_id");
-
   const applicationStatus = status || "pending";
   validateStatus(applicationStatus, APPLICATION_STATUSES);
-
-  await getUserById(user_id);
 
   const { data, error } = await supabase
     .from("applications")
     .insert([
       {
-        user_id: Number(user_id),
+        user_id, // ✅ from token
         admission_type: admission_type.trim(),
         university: university.trim(),
         status: applicationStatus
@@ -70,16 +48,9 @@ const createApplication = asyncHandler(async (req, res) => {
   return sendSuccess(res, 201, "Application submitted successfully", data);
 });
 
-// Get all applications for admin users
+// Get all applications (admin only)
 const getAllApplications = asyncHandler(async (req, res) => {
-  const { user_id } = req.query;
-
-  validateRequiredFields([{ name: "user_id", value: user_id }]);
-  validatePositiveNumber(user_id, "user_id");
-
-  const user = await getUserById(user_id);
-
-  if (user.role !== "admin") {
+  if (req.user.role !== "admin") {
     throw new AppError("Only admin can view all applications", 403);
   }
 
@@ -95,8 +66,12 @@ const getAllApplications = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "Applications fetched successfully", data);
 });
 
-// Update application status
+// Update application status (admin only)
 const updateApplicationStatus = asyncHandler(async (req, res) => {
+  if (req.user.role !== "admin") {
+    throw new AppError("Only admin can update application status", 403);
+  }
+
   const { id } = req.params;
   const { status } = req.body;
 

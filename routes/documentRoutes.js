@@ -3,14 +3,17 @@ const {
   uploadDocument,
   getUserDocuments
 } = require("../controllers/documentController");
+const { protect } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
-// Document routes
-router.post("/documents", uploadDocument);
-router.get("/documents/:user_id", getUserDocuments);
+// Upload document (only logged-in users)
+router.post("/documents", protect, uploadDocument);
 
-// Backward-compatible alias for the older route name
-router.post("/upload", uploadDocument);
+// Get documents for logged-in user
+router.get("/documents", protect, getUserDocuments);
+
+// Backward-compatible alias
+router.post("/upload", protect, uploadDocument);
 
 module.exports = router;

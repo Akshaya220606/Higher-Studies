@@ -4,15 +4,20 @@ const {
   getAllApplications,
   updateApplicationStatus
 } = require("../controllers/applicationController");
+const { protect } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
-// Application routes
-router.post("/applications", createApplication);
-router.get("/applications", getAllApplications);
-router.put("/applications/:id", updateApplicationStatus);
+// Create application (only logged-in users)
+router.post("/applications", protect, createApplication);
 
-// Backward-compatible alias for the older route name
-router.post("/apply", createApplication);
+// Get all applications (admin only)
+router.get("/applications", protect, getAllApplications);
+
+// Update application status (admin only)
+router.put("/applications/:id", protect, updateApplicationStatus);
+
+// Backward-compatible alias
+router.post("/apply", protect, createApplication);
 
 module.exports = router;

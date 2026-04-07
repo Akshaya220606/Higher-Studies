@@ -7,12 +7,12 @@ const {
   isNonEmptyString
 } = require("../utils/validation");
 
-// Save uploaded document metadata in database
+// Save uploaded document metadata
 const uploadDocument = asyncHandler(async (req, res) => {
-  const { user_id, file_url, file_name } = req.body;
+  const user_id = req.user.id; // 🔥 from token
+  const { file_url, file_name } = req.body;
 
   validateRequiredFields([
-    { name: "user_id", value: user_id },
     { name: "file_url", value: file_url },
     { name: "file_name", value: file_name }
   ]);
@@ -25,7 +25,7 @@ const uploadDocument = asyncHandler(async (req, res) => {
     .from("documents")
     .insert([
       {
-        user_id,
+        user_id, // ✅ from token
         file_url: file_url.trim(),
         file_name: file_name.trim()
       }
@@ -40,11 +40,9 @@ const uploadDocument = asyncHandler(async (req, res) => {
   return sendSuccess(res, 201, "Document metadata stored successfully", data);
 });
 
-// Get all documents for a specific user
+// Get documents for logged-in user
 const getUserDocuments = asyncHandler(async (req, res) => {
-  const { user_id } = req.params;
-
-  validateRequiredFields([{ name: "user_id", value: user_id }]);
+  const user_id = req.user.id; // 🔥 from token
 
   const { data, error } = await supabase
     .from("documents")
