@@ -36,11 +36,54 @@
     <div class="l-err" id="l-err"></div>
     <button class="l-btn" onclick="doLogin()">Sign In →</button>
 
-    <div class="l-hint">
-      <b>Demo credentials —</b><br/>
-      Student: <b>student@demo.com</b> / <b>student123</b><br/>
-      Admin: <b>admin@demo.com</b> / <b>admin123</b>
+    <div class="l-reg-row">Don't have an account? <button class="l-reg-link" onclick="showRegister()">Create one →</button></div>
+  </div>
+</div>
+
+<!-- ════════════════ REGISTER ════════════════ -->
+<div id="register-screen">
+  <div class="lw rw">
+    <div class="l-brand">
+      <div class="l-logo"><svg viewBox="0 0 20 20" fill="none" stroke="#0F172A" stroke-width="1.8"><polygon points="10,1.5 18,6 18,14 10,18.5 2,14 2,6"/></svg></div>
+      <span class="l-name">EduTrack</span>
     </div>
+    <div class="l-tagline">Create your student account</div>
+
+    <div class="rg-title">New Student Registration</div>
+
+    <div class="fr2-l">
+      <div class="lf"><label>FULL NAME *</label><input type="text" id="rg-name" placeholder="e.g. Arun Kumar"/><div class="l-ferr" id="re-name"></div></div>
+      <div class="lf"><label>ROLL NUMBER *</label><input type="text" id="rg-roll" placeholder="e.g. 22CS042"/><div class="l-ferr" id="re-roll"></div></div>
+    </div>
+    <div class="lf"><label>EMAIL ADDRESS *</label><input type="email" id="rg-email" placeholder="student@college.edu"/><div class="l-ferr" id="re-email"></div></div>
+    <div class="fr2-l">
+      <div class="lf">
+        <label>BRANCH *</label>
+        <select id="rg-branch" class="lf-sel">
+          <option value="">— Select branch —</option>
+          <option>Computer Science</option><option>Electronics &amp; Communication</option>
+          <option>Mechanical</option><option>Civil</option><option>Electrical</option>
+          <option>Chemical</option><option>Information Technology</option><option>Biotechnology</option>
+        </select>
+        <div class="l-ferr" id="re-branch"></div>
+      </div>
+      <div class="lf">
+        <label>YEAR OF PASSING *</label>
+        <select id="rg-year" class="lf-sel">
+          <option value="">— Select year —</option>
+          <option>2020</option><option>2021</option><option>2022</option><option>2023</option>
+          <option>2024</option><option>2025</option><option>2026</option>
+        </select>
+        <div class="l-ferr" id="re-year"></div>
+      </div>
+    </div>
+    <div class="fr2-l">
+      <div class="lf"><label>PASSWORD *</label><input type="password" id="rg-pass" placeholder="Min. 6 characters"/><div class="l-ferr" id="re-pass"></div></div>
+      <div class="lf"><label>CONFIRM PASSWORD *</label><input type="password" id="rg-pass2" placeholder="Re-enter password"/><div class="l-ferr" id="re-pass2"></div></div>
+    </div>
+    <div class="l-err" id="rg-err"></div>
+    <button class="l-btn" onclick="doRegister()">Create Account →</button>
+    <div class="l-reg-row" style="margin-top:16px">Already have an account? <button class="l-reg-link" onclick="showLogin()">Sign in →</button></div>
   </div>
 </div>
 
@@ -264,7 +307,7 @@
 <div class="modal-bg" id="doc-modal">
   <div class="modal">
     <div class="mhdr"><h3 id="m-title">Documents</h3><span class="mclose" onclick="closeM()">✕</span></div>
-    <div class="mn">📋 Documents submitted by the student</div>
+    <div class="mn">📋Documents submitted by the student</div>
     <div id="m-docs"></div>
   </div>
 </div>

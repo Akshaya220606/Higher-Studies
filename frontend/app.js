@@ -1,35 +1,110 @@
+const BASE_URL = "http://localhost:5000/api";
+function authFetch(url, options = {}) {
+  const token = localStorage.getItem("token");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+      ...(options.headers || {})
+    }
+  });
+}
 // ── STATE ──
 const SK = 'edutrack_v4';
 let DB = (() => { try { return JSON.parse(localStorage.getItem(SK)) || { students:[] }; } catch { return { students:[] }; } })();
 const saveDB = () => localStorage.setItem(SK, JSON.stringify(DB));
 let role = null, user = null, draft = {}, selE = 'GATE', docF = {}, CH = {};
 
-// ── CREDS ──
-const CREDS = {
-  student: { email:'student@demo.com', pass:'student123', name:'Arun Kumar' },
-  admin:   { email:'admin@demo.com',   pass:'admin123',   name:'Admin' }
-};
 
-// ── SEED ──
-(function(){
-  if (DB.students.length) return;
-  DB.students = [
-    {roll:'21CS001',name:'Arun Kumar',email:'arun@c.edu',branch:'Computer Science',year:'2024',exam:'GATE',score:'720',country:'India',college:'IIT Bombay',course:'M.Tech CSE',docs:{hall_ticket:'ht_21CS001.pdf',rank_card:'rc_21CS001.pdf',allotment:'al_21CS001.pdf',admission:null},date:'01 Apr 2025'},
-    {roll:'21EC002',name:'Priya Sharma',email:'priya@c.edu',branch:'Electronics & Communication',year:'2024',exam:'GRE',score:'325',country:'USA',college:'MIT',course:'MS ECE',docs:{hall_ticket:'ht_21EC002.pdf',rank_card:'rc_21EC002.pdf',allotment:null,admission:'ad_21EC002.pdf'},date:'02 Apr 2025'},
-    {roll:'21MB003',name:'Rohan Mehta',email:'rohan@c.edu',branch:'Mechanical',year:'2023',exam:'CAT',score:'98.5 %ile',country:'India',college:'IIM Ahmedabad',course:'MBA',docs:{hall_ticket:'ht_21MB003.pdf',rank_card:'rc_21MB003.pdf',allotment:'al_21MB003.pdf',admission:'ad_21MB003.pdf'},date:'03 Apr 2025'},
-    {roll:'21CS004',name:'Sneha Patel',email:'sneha@c.edu',branch:'Computer Science',year:'2024',exam:'GRE',score:'328',country:'Germany',college:'TU Munich',course:'MS Computer Science',docs:{hall_ticket:'ht_21CS004.pdf',rank_card:null,allotment:null,admission:null},date:'03 Apr 2025'},
-    {roll:'20EE005',name:'Vikram Singh',email:'vikram@c.edu',branch:'Electrical',year:'2023',exam:'GATE',score:'680',country:'India',college:'NIT Trichy',course:'M.Tech Power Systems',docs:{hall_ticket:'ht_20EE005.pdf',rank_card:'rc_20EE005.pdf',allotment:'al_20EE005.pdf',admission:'ad_20EE005.pdf'},date:'04 Apr 2025'},
-    {roll:'20IT006',name:'Divya Nair',email:'divya@c.edu',branch:'Information Technology',year:'2022',exam:'GRE',score:'320',country:'Canada',college:'University of Toronto',course:'MS Data Science',docs:{hall_ticket:'ht_20IT006.pdf',rank_card:'rc_20IT006.pdf',allotment:null,admission:'ad_20IT006.pdf'},date:'04 Apr 2025'},
-    {roll:'21CV007',name:'Arjun Reddy',email:'arjun@c.edu',branch:'Civil',year:'2024',exam:'GATE',score:'710',country:'India',college:'IIT Madras',course:'M.Tech Structural',docs:{hall_ticket:'ht_21CV007.pdf',rank_card:'rc_21CV007.pdf',allotment:'al_21CV007.pdf',admission:'ad_21CV007.pdf'},date:'05 Apr 2025'},
-  ];
-  saveDB();
-})();
 
 // ── UTILS ──
 const g  = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
 const sErr = (id, msg) => { const e = document.getElementById(id); if(e) e.textContent = msg; };
 const cErr = id => { const e = document.getElementById(id); if(e) e.textContent = ''; };
 
+// ── REGISTER SCREEN ──
+function showRegister() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('register-screen').classList.add('show');
+  // clear form
+  ['rg-name','rg-roll','rg-email','rg-pass','rg-pass2'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['rg-branch','rg-year'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
+  ['re-name','re-roll','re-email','re-branch','re-year','re-pass','re-pass2','rg-err'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
+}
+function showLogin() {
+  document.getElementById('register-screen').classList.remove('show');
+  document.getElementById('login-screen').style.display = 'flex';
+}
+async function doRegister() {
+  const name  = document.getElementById('rg-name').value.trim();
+  const roll  = document.getElementById('rg-roll').value.trim();
+  const email = document.getElementById('rg-email').value.trim();
+  const branch= document.getElementById('rg-branch').value;
+  const year  = document.getElementById('rg-year').value;
+  const pass  = document.getElementById('rg-pass').value;
+  const pass2 = document.getElementById('rg-pass2').value;
+  const err   = document.getElementById('rg-err');
+
+  let ok = true;
+
+  const se = (id,msg) => { document.getElementById(id).textContent = msg; ok = false; };
+  const ce = id => { document.getElementById(id).textContent = ''; };
+
+  if (!name)  se('re-name','Full name is required'); else ce('re-name');
+  if (!roll)  se('re-roll','Roll number is required'); else ce('re-roll');
+  if (!email || !email.includes('@')) se('re-email','Valid email is required'); else ce('re-email');
+  if (!branch) se('re-branch','Select a branch'); else ce('re-branch');
+  if (!year)   se('re-year','Select a year'); else ce('re-year');
+  if (!pass || pass.length < 6) se('re-pass','Min. 6 characters'); else ce('re-pass');
+  if (pass !== pass2) se('re-pass2','Passwords do not match'); else ce('re-pass2');
+
+  if (!ok) return;
+
+  err.textContent = '';
+
+  try {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password: pass,
+        role: "student"   // 🔥 important
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      err.textContent = data.message || "Registration failed";
+      return;
+    }
+
+    // ✅ SUCCESS UI (same as your logic)
+    err.style.color = '#4ADE80';
+    err.textContent = '✓ Account created! Please sign in.';
+
+    setTimeout(() => {
+      err.style.color = '';
+      err.textContent = '';
+
+      document.getElementById('l-email').value = email;
+      document.getElementById('l-pass').value = '';
+
+      showLogin();
+      pickRole('student');
+
+    }, 1400);
+
+  } catch (error) {
+    err.textContent = "Server error. Try again.";
+  }
+}
 // ── LOGIN ──
 let selRole = 'student';
 function pickRole(r) {
@@ -37,23 +112,58 @@ function pickRole(r) {
   document.getElementById('rt-s').classList.toggle('on', r==='student');
   document.getElementById('rt-a').classList.toggle('on', r==='admin');
 }
-function doLogin() {
+async function doLogin() {
   const email = document.getElementById('l-email').value.trim();
   const pw    = document.getElementById('l-pass').value;
   const er    = document.getElementById('l-err');
 
   const currentRole = document.getElementById('rt-a').classList.contains('on') ? 'admin' : 'student';
-  const cr = CREDS[currentRole];
 
   if (!email) { er.textContent = 'Please enter your email.'; return; }
-  if (email.toLowerCase() !== cr.email) { er.textContent = 'Email does not match the selected role.'; return; }
   if (!pw)    { er.textContent = 'Please enter your password.'; return; }
-  if (pw !== cr.pass) { er.textContent = 'Incorrect password.'; return; }
 
-  er.textContent = '';
-  role = currentRole;
-  user = cr;
-  launchApp();
+  try {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password: pw
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      er.textContent = data.message || "Login failed";
+      return;
+    }
+
+   const backendUser = data.data.user;   // ✅ correct
+   const token = data.data.token;        // ✅ correct
+
+    // 🔥 IMPORTANT: ROLE CHECK
+    if (backendUser.role !== currentRole) {
+      er.textContent = "Selected role does not match your account.";
+      return;
+    }
+
+    // ✅ Save token
+    localStorage.setItem("token", token);
+
+    // ✅ Set global user + role
+    user = backendUser;
+    role = backendUser.role;
+
+    er.textContent = "";
+
+    launchApp();
+
+  } catch (err) {
+    er.textContent = "Server error. Try again.";
+  }
 }
 function doLogout() {
   role=null; user=null; draft={}; docF={}; selE='GATE';
