@@ -17,6 +17,15 @@ const PORT = process.env.PORT || 5000;
 // Convert incoming request body to JSON
 app.use(express.json());
 
+// Support URL-encoded and multipart form data
+app.use(express.urlencoded({ extended: true }));
+
+// Request logger middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
 // Simple home route to check server status
 app.get("/", (req, res) => {
   res.json({

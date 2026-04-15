@@ -1,4 +1,5 @@
 const BASE_URL = "http://localhost:5000/api";
+let uploadedFile = null;
 function authFetch(url, options = {}) {
   const token = localStorage.getItem("token");
 
@@ -215,18 +216,36 @@ function buildSB() {
 
 // ── NAVIGATION ──
 function goto(pg) {
-  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));
-  const el=document.getElementById('pg-'+pg); if(el)el.classList.add('on');
-  const ni=document.querySelector(`.sb-item[data-pg="${pg}"]`); if(ni)ni.classList.add('on');
-  if(pg==='s-docs')   buildDocArea();
-  if(pg==='s-submit') buildReview();
-  if(pg==='s-dash')   updateDashSteps();
-  if(pg==='a-dash')   setTimeout(drawDash,80);
-  if(pg==='a-students'){popFDrops();applyF();}
-  if(pg==='a-reports') setTimeout(drawRep,80);
-  if(pg==='a-alumni')  renderAlumni();
+  document.querySelectorAll('.pg').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('on'));
+
+  const el = document.getElementById('pg-' + pg);
+  if (el) el.classList.add('on');
+
+  const ni = document.querySelector(`.sb-item[data-pg="${pg}"]`);
+  if (ni) ni.classList.add('on');
+
+  if (pg === 's-docs') buildDocArea();
+  if (pg === 's-submit') buildReview();
+  if (pg === 's-dash') updateDashSteps();
+  if (pg === 'a-dash') setTimeout(drawDash, 80);
+  if (pg === 'a-students') { popFDrops(); applyF(); }
+  if (pg === 'a-reports') setTimeout(drawRep, 80);
+  if (pg === 'a-alumni') renderAlumni();
+
   buildSI(pg);
+
+  // 🔥 ADD THIS BLOCK (VERY IMPORTANT)
+  setTimeout(() => {
+    const fileInput = document.getElementById("pdfFile");
+
+    if (fileInput) {
+      fileInput.addEventListener("change", (event) => {
+        uploadedFile = event.target.files[0];
+        console.log("Stored file:", uploadedFile);
+      });
+    }
+  }, 100);
 }
 
 // ── STEP INDICATORS ──
@@ -277,7 +296,15 @@ function saveReg(){
 }
 
 // ── STEP 2 ──
-function pickExam(el){document.querySelectorAll('.eo').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');selE=el.dataset.v;}
+let selectedExam = "";
+
+function pickExam(el) {
+  document.querySelectorAll(".eo").forEach(element => element.classList.remove("sel"));
+  el.classList.add("sel");
+
+  selectedExam = el.getAttribute("data-v");
+  console.log("Selected exam:", selectedExam);
+}
 function saveExam(){
   const sc=g('ex-score');
   if(!sc){sErr('e-score','Score or rank is required');return;}cErr('e-score');
@@ -299,8 +326,15 @@ function buildDocArea(){
     <div id="fp-${d.id}"></div></div>`).join('');
   DDEFS.forEach(d=>{if(docF[d.id])showFP(d.id,docF[d.id]);});
 }
-function dDrop(ev,id){ev.preventDefault();document.getElementById('upz-'+id).classList.remove('drag');const f=ev.dataTransfer.files[0];if(f)setF(id,f.name);}
-function hFile(id,inp){if(inp.files[0])setF(id,inp.files[0].name);}
+
+function dDrop(ev,id){ev.preventDefault();document.getElementById('upz-'+id).classList.remove('drag');const f=ev.dataTransfer.files[0];if(f){docF[id]=f;console.log("docF:",docF);showFP(id,f.name);}}
+function hFile(id, inp) {
+  if (inp.files[0]) {
+    docF[id] = inp.files[0];
+    console.log("docF:", docF);
+    showFP(id, inp.files[0].name);
+  }
+}
 function setF(id,nm){docF[id]=nm;showFP(id,nm);}
 function showFP(id,nm){const c=document.getElementById('fp-'+id);if(!c)return;c.innerHTML=`<div class="uf-list"><div class="uf-item"><span class="uf-ok">✓</span><span class="uf-nm">${nm}</span><span class="uf-rm" onclick="rmF('${id}')">×</span></div></div>`;}
 function rmF(id){docF[id]=null;const fi=document.getElementById('fi-'+id);if(fi)fi.value='';const c=document.getElementById('fp-'+id);if(c)c.innerHTML='';}
@@ -320,14 +354,81 @@ function buildReview(){
   const rows=[['Name',draft.name||'—'],['Roll No',draft.roll||'—'],['Email',draft.email||'—'],['Branch',draft.branch||'—'],['Year',draft.year||'—'],['Exam',draft.exam||'—'],['Score',draft.score||'—'],['Country',draft.country||'—'],['College',draft.college||'—'],['Course',draft.course||'—'],['Docs uploaded',Object.values(docF).filter(Boolean).length+' files']];
   document.getElementById('rv-box').innerHTML=`<table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
 }
-function finalSubmit(){
-  if(!draft.name||!draft.roll){alert('Complete all steps first.');goto('s-register');return;}
-  if(DB.students.find(s=>s.roll===draft.roll)){alert('This roll number is already registered.');return;}
-  DB.students.push({roll:draft.roll,name:draft.name,email:draft.email,branch:draft.branch,year:draft.year,exam:draft.exam,score:draft.score,country:draft.country,college:draft.college,course:draft.course,docs:{hall_ticket:docF.hall_ticket||null,rank_card:docF.rank_card||null,allotment:docF.allotment||null,admission:docF.admission||null},date:new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})});
-  saveDB();draft={};docF={};selE='GATE';
-  ['r-name','r-roll','r-email','ex-score','u-college','u-course'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  ['r-branch','r-year','u-country'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
-  goto('success');
+async function finalSubmit() {
+  try {
+    const token = localStorage.getItem("token");
+
+    // 🔥 Get file from docF
+    const file = Object.values(docF)[0];
+    console.log("docF:", docF);
+    console.log("Using file:", file);
+
+    if (!file) {
+      alert("Please upload at least one document");
+      return;
+    }
+
+    // 🔥 Get admission_type from dropdown
+    const admissionType = document.getElementById("admissionType")?.value?.trim();
+    console.log("admission_type:", admissionType);
+
+    if (!admissionType) {
+      alert("Please select admission type");
+      return;
+    }
+
+    // 🔥 Get university
+    const university = document.getElementById("u-college")?.value?.trim();
+    console.log("university:", university);
+
+    if (!university) {
+      alert("Please enter a university/college name");
+      return;
+    }
+
+    // 🔥 FormData
+    const formData = new FormData();
+    formData.append("admission_type", admissionType);
+    formData.append("university", university);
+    formData.append("pdf", file);
+
+    const url = "http://localhost:5000/api/applications";
+    console.log("Sending request to:", url);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    console.log("Response status:", response.status);
+
+    // 🔥 safer response handling
+    let result;
+    try {
+      result = await response.json();
+    } catch {
+      const text = await response.text();
+      console.log("Raw response:", text);
+      throw new Error("Invalid JSON response");
+    }
+
+    console.log("RESPONSE:", result);
+
+    if (!response.ok) {
+      alert(result.message || "Submission failed");
+      return;
+    }
+
+    alert("Application submitted successfully!");
+    goto("success");
+
+  } catch (error) {
+    console.error("FULL ERROR:", error);
+    alert(error.message || "Something went wrong");
+  }
 }
 
 // ── UNIFIED SEARCH + FILTER ──
@@ -435,4 +536,8 @@ function renderAlumni(){
   const el=document.getElementById('alum-list');if(!el)return;
   if(!DB.students.length){el.innerHTML='<div class="no-data" style="grid-column:1/-1">No alumni records yet.</div>';return;}
   el.innerHTML=DB.students.map(s=>`<div class="alum-card"><div class="alum-av">${(s.name||'?')[0].toUpperCase()}</div><div class="alum-info"><h4>${s.name} <span style="font-size:11px;color:var(--mt);font-weight:400">${s.roll}</span></h4><p>${s.branch} · Batch ${s.year}<br/>${s.college}, ${s.country}</p><span class="badge ${(s.exam||'').toLowerCase()}">${s.exam} · ${s.score}</span></div></div>`).join('');
+}
+function handleFileUpload(event) {
+  uploadedFile = event.target.files[0];
+  console.log("Stored file:", uploadedFile);
 }
