@@ -99,7 +99,18 @@ const getAllApplications = asyncHandler(async (req, res) => {
 
   const { data, error } = await supabase
     .from("applications")
-    .select("*")
+    .select(`
+      id,
+      admission_type,
+      university,
+      status,
+      created_at,
+      pdf_url,
+      users (
+        name,
+        roll_no
+      )
+    `)
     .order("created_at", { ascending: false });
 
   if (error) {

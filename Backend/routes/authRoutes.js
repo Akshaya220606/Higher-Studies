@@ -6,8 +6,10 @@ const router = express.Router();
 
 // Auth routes
 router.post("/register", registerUser);
-router.post("/login", loginUser);
-
+router.post("/login", (req, res, next) => {
+  console.log("LOGIN ROUTE HIT ✅");
+  next();
+}, loginUser);
 // 🔥 Test protected route
 router.get("/test", protect, (req, res) => {
   res.json({

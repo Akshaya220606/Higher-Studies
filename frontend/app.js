@@ -12,6 +12,27 @@ function authFetch(url, options = {}) {
     }
   });
 }
+async function loadApplications() {
+  try {
+    const res = await authFetch(`${BASE_URL}/applications`, {
+      method: "GET"
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      alert(result.message || "Failed to fetch applications");
+      return;
+    }
+
+    console.log("Applications from backend:", result.data);
+
+    renderTbl(result.data); // 👈 send to table
+
+  } catch (err) {
+    console.error("Error:", err);
+  }
+}
 // ── STATE ──
 const SK = 'edutrack_v4';
 let DB = (() => { try { return JSON.parse(localStorage.getItem(SK)) || { students:[] }; } catch { return { students:[] }; } })();
@@ -229,7 +250,9 @@ function goto(pg) {
   if (pg === 's-submit') buildReview();
   if (pg === 's-dash') updateDashSteps();
   if (pg === 'a-dash') setTimeout(drawDash, 80);
-  if (pg === 'a-students') { popFDrops(); applyF(); }
+  if (pg === 'a-students') { 
+    loadApplications();   // 👈 IMPORTANT
+  }
   if (pg === 'a-reports') setTimeout(drawRep, 80);
   if (pg === 'a-alumni') renderAlumni();
 
@@ -358,17 +381,15 @@ async function finalSubmit() {
   try {
     const token = localStorage.getItem("token");
 
-    // 🔥 Get file from docF
-    const file = Object.values(docF)[0];
     console.log("docF:", docF);
-    console.log("Using file:", file);
 
-    if (!file) {
-      alert("Please upload at least one document");
+    // ✅ Validate required files
+    if (!docF.hall_ticket || !docF.rank_card) {
+      alert("Hall Ticket and Rank Card are required");
       return;
     }
 
-    // 🔥 Get admission_type from dropdown
+    // 🔥 Get admission_type
     const admissionType = document.getElementById("admissionType")?.value?.trim();
     console.log("admission_type:", admissionType);
 
@@ -386,26 +407,43 @@ async function finalSubmit() {
       return;
     }
 
-    // 🔥 FormData
+    // ✅ Create FormData
     const formData = new FormData();
+
     formData.append("admission_type", admissionType);
     formData.append("university", university);
-    formData.append("pdf", file);
 
-    const url = "http://localhost:5000/api/applications";
+    // 🔥 Append all files properly
+    if (docF.hall_ticket) {
+      formData.append("hall_ticket", docF.hall_ticket);
+    }
+
+    if (docF.rank_card) {
+      formData.append("rank_card", docF.rank_card);
+    }
+
+    if (docF.allotment) {
+      formData.append("seat_allotment", docF.allotment);
+    }
+
+    if (docF.admission) {
+      formData.append("admission_letter", docF.admission);
+    }
+
+    // ✅ Correct endpoint
+    const url = "http://localhost:5000/api/documents";
     console.log("Sending request to:", url);
 
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${token}`, // ❗ DO NOT add Content-Type
       },
       body: formData,
     });
 
     console.log("Response status:", response.status);
 
-    // 🔥 safer response handling
     let result;
     try {
       result = await response.json();
@@ -422,7 +460,7 @@ async function finalSubmit() {
       return;
     }
 
-    alert("Application submitted successfully!");
+    alert("Documents uploaded successfully!");
     goto("success");
 
   } catch (error) {
@@ -469,21 +507,25 @@ function gSearch(v){const e=document.getElementById('sf-q');if(e)e.value=v;if(do
 
 // ── TABLE ──
 function renderTbl(data){
-  const body=document.getElementById('tbl-body'),cnt=document.getElementById('tbl-cnt');
-  if(!body)return;
-  if(!data.length){body.innerHTML=`<tr><td colspan="9" class="no-data">No students match your filters.</td></tr>`;if(cnt)cnt.textContent='';return;}
-  body.innerHTML=data.map(s=>`<tr>
-    <td><code style="font-size:11.5px;background:var(--bg);padding:2px 7px;border-radius:5px;font-family:monospace">${s.roll}</code></td>
-    <td style="font-weight:600">${s.name}</td>
-    <td style="font-size:12px;color:var(--mt)">${s.branch}</td>
-    <td>${s.year}</td>
-    <td><span class="badge ${(s.exam||'').toLowerCase()}">${s.exam}</span></td>
-    <td style="font-weight:600">${s.score}</td>
-    <td style="font-size:12.5px;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.college}</td>
-    <td>${s.country}</td>
-    <td><button class="dbtn" onclick="openM('${s.roll}')">View Docs</button></td>
-  </tr>`).join('');
-  if(cnt)cnt.textContent=`Showing ${data.length} of ${DB.students.length} students`;
+  const body = document.getElementById('tbl-body');
+  if(!body) return;
+
+  if(!data.length){
+    body.innerHTML = `<tr><td colspan="6">No applications found</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = data.map(s => `
+    <tr>
+      <td>${s.user_id}</td>
+      <td>${s.university}</td>
+      <td>${s.admission_type}</td>
+      <td>${s.status}</td>
+      <td>
+        ${s.pdf_url ? `<a href="${s.pdf_url}" target="_blank">View</a>` : "No File"}
+      </td>
+    </tr>
+  `).join('');
 }
 
 // ── DOC MODAL ──
