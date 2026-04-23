@@ -16,7 +16,7 @@ const createApplication = asyncHandler(async (req, res) => {
   console.log("BODY:", req.body);
 
   const user_id = req.user.id;
-  const { admission_type, university, status } = req.body;
+  const { admission_type, university, status, country, score } = req.body;
 
   validateRequiredFields([
     { name: "admission_type", value: admission_type },
@@ -38,7 +38,9 @@ const createApplication = asyncHandler(async (req, res) => {
         user_id,
         admission_type: admission_type.trim(),
         university: university.trim(),
-        status: applicationStatus
+        status: applicationStatus,
+        country: country,
+        score
       }
     ])
     .select()
@@ -66,9 +68,13 @@ const getAllApplications = asyncHandler(async (req, res) => {
       university,
       status,
       created_at,
+      score,
+      country,
       users (
         name,
-        roll_no
+        roll_no,
+        branch,
+        year
       )
     `)
     .order("created_at", { ascending: false });

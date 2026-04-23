@@ -97,7 +97,9 @@ async function doRegister() {
         email,
         password: pass,
         role: "student" ,
-        roll_no: roll   // 🔥 important
+        roll_no: roll,   // 🔥 important
+        branch: branch,   // ✅ ADD
+        year: year 
       })
     });
 
@@ -378,8 +380,19 @@ function buildReview(){
   const rows=[['Name',draft.name||'—'],['Roll No',draft.roll||'—'],['Email',draft.email||'—'],['Branch',draft.branch||'—'],['Year',draft.year||'—'],['Exam',draft.exam||'—'],['Score',draft.score||'—'],['Country',draft.country||'—'],['College',draft.college||'—'],['Course',draft.course||'—'],['Docs uploaded',Object.values(docF).filter(Boolean).length+' files']];
   document.getElementById('rv-box').innerHTML=`<table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
 }
+let isSubmitting = false;
+
 async function finalSubmit() {
   try {
+    if (isSubmitting) return;
+    isSubmitting = true;
+
+    const btn = document.querySelector(".btn-p");
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "Submitting...";
+    }
+
     const token = localStorage.getItem("token");
 
     if (!docF.hall_ticket || !docF.rank_card) {
@@ -389,21 +402,47 @@ async function finalSubmit() {
 
     const admissionType = document.getElementById("admissionType")?.value?.trim();
     const university = document.getElementById("u-college")?.value?.trim();
+    const country = document.getElementById("u-country")?.value?.trim();
+    const score = document.getElementById("ex-score")?.value?.trim();
 
-    if (!admissionType) {
-      alert("Please select admission type");
-      return;
-    }
-
-    if (!university) {
-      alert("Please enter a university/college name");
+    if (!admissionType || !university) {
+      alert("Please fill all required fields");
       return;
     }
 
     // ======================
-    // STEP 1: UPLOAD DOCS
+    // STEP 1: CREATE APPLICATION FIRST
+    // ======================
+    const appRes = await fetch(`${BASE_URL}/applications`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        admission_type: admissionType,
+        university,
+        country,
+        score
+      })
+    });
+
+    const appData = await appRes.json();
+
+    if (!appRes.ok) {
+      alert(appData.message || "Application creation failed");
+      return;
+    }
+
+    const applicationId = appData.data.id; // 🔥 IMPORTANT
+    console.log("Application ID:", applicationId);
+
+    // ======================
+    // STEP 2: UPLOAD DOCS WITH application_id
     // ======================
     const formData = new FormData();
+
+    formData.append("application_id", applicationId); // 🔥 ADD THIS
 
     formData.append("hall_ticket", docF.hall_ticket);
     formData.append("rank_card", docF.rank_card);
@@ -434,43 +473,25 @@ async function finalSubmit() {
     console.log("Documents uploaded:", docData);
 
     // ======================
-    // STEP 2: CREATE APPLICATION
-    // ======================
-    const appRes = await fetch(`${BASE_URL}/applications`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        admission_type: admissionType,
-        university: university
-      })
-    });
-
-    const appData = await appRes.json();
-
-    if (!appRes.ok) {
-      alert(appData.message || "Application creation failed");
-      return;
-    }
-
-    console.log("Application created:", appData);
-
-    // ======================
     // SUCCESS
     // ======================
     alert("Application submitted successfully!");
-
     goto("success");
-
-    setTimeout(() => {
-      goto("a-students");
-    }, 800);
 
   } catch (error) {
     console.error(error);
     alert("Something went wrong");
+  } finally {
+    setTimeout(() => {
+      isSubmitting = false;
+
+      const btn = document.querySelector(".btn-p");
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = "✓ Submit Application";
+      }
+
+    }, 5000);
   }
 }
 
@@ -515,39 +536,81 @@ function renderTbl(data){
   const body = document.getElementById('tbl-body');
   if(!body) return;
 
-  console.log("TABLE DATA:", data); // debug
-
   if(!data.length){
-    body.innerHTML = `<tr><td colspan="6">No applications found</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9">No applications found</td></tr>`;
     return;
   }
 
   body.innerHTML = data.map(s => `
     <tr>
-      <td>${s.users?.roll_no || "N/A"}</td>        <!-- ROLL NO -->
-      <td>${s.users?.name || "N/A"}</td>          <!-- NAME -->
-      <td>N/A</td>                                <!-- BRANCH -->
-      <td>N/A</td>                                <!-- YEAR -->
-      <td>${s.admission_type || "N/A"}</td>        <!-- EXAM -->
-      <td>N/A</td>                                <!-- SCORE -->
-      <td>${s.university || "N/A"}</td>            <!-- COLLEGE -->
-      <td>N/A</td>                                <!-- COUNTRY -->
-      <td>
-        ${s.pdf_url ? `<a href="${s.pdf_url}" target="_blank">View</a>` : "No File"}
-      </td>
+      <td>${s.users?.roll_no || "N/A"}</td>
+      <td>${s.users?.name || "N/A"}</td>
+      <td>${s.users?.branch || "N/A"}</td>
+      <td>${s.users?.year || "N/A"}</td>
+      <td>${s.admission_type || "N/A"}</td>
+      <td>${s.score || "N/A"}</td>
+      <td>${s.university || "N/A"}</td>
+      <td>${s.country || "N/A"}</td>
+      <td><button onclick="openDocs(${s.id})">View</button></td>
     </tr>
   `).join('');
 }
 
 // ── DOC MODAL ──
-function openM(roll){
-  const s=DB.students.find(s=>s.roll===roll);if(!s)return;
-  document.getElementById('m-title').textContent=s.name+' — Documents';
-  const defs=[{id:'hall_ticket',lb:'Hall Ticket'},{id:'rank_card',lb:'Rank Card'},{id:'allotment',lb:'Seat Allotment Letter'},{id:'admission',lb:'Admission Letter'}];
-  document.getElementById('m-docs').innerHTML=defs.map(d=>`<div class="doc-row"><div class="doc-row-l"><span>📄</span><span>${d.lb}</span></div>${(s.docs&&s.docs[d.id])?`<button class="dv-btn" onclick="alert('File: ${s.docs[d.id]}\\n\\nIn production, this opens the Supabase storage URL.')">${s.docs[d.id]}</button>`:`<span class="dm">Not uploaded</span>`}</div>`).join('');
-  document.getElementById('doc-modal').classList.add('open');
+// ── DOC MODAL ──
+async function openDocs(applicationId) {
+  try {
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${BASE_URL}/documents/application/${applicationId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      alert(result.message || "Failed to fetch documents");
+      return;
+    }
+
+    const docs = result.data;
+
+    const content = `
+      <div>
+        <p><strong>Hall Ticket:</strong> 
+          ${docs.hall_ticket ? `<a href="${docs.hall_ticket}" target="_blank">View</a>` : "Not uploaded"}
+        </p>
+
+        <p><strong>Rank Card:</strong> 
+          ${docs.rank_card ? `<a href="${docs.rank_card}" target="_blank">View</a>` : "Not uploaded"}
+        </p>
+
+        <p><strong>Seat Allotment:</strong> 
+          ${docs.seat_allotment ? `<a href="${docs.seat_allotment}" target="_blank">View</a>` : "Not uploaded"}
+        </p>
+
+        <p><strong>Admission Letter:</strong> 
+          ${docs.admission_letter ? `<a href="${docs.admission_letter}" target="_blank">View</a>` : "Not uploaded"}
+        </p>
+      </div>
+    `;
+
+    document.getElementById("m-title").innerText = "Student Documents";
+    document.getElementById("m-docs").innerHTML = content;
+    document.getElementById("doc-modal").classList.add("open");
+
+  } catch (err) {
+    console.error(err);
+    alert("Error loading documents");
+  }
 }
-function closeM(){document.getElementById('doc-modal').classList.remove('open');}
+
+function closeM() {
+  document.getElementById("doc-modal").classList.remove("open");
+}
+
 
 // ── EXPORT ──
 function exportCSV(){

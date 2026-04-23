@@ -16,7 +16,7 @@ const bcrypt = require("bcrypt");
 
 // Register a new user
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, role, roll_no } = req.body; // 🔥 added roll_no
+  const { name, email, password, role, roll_no, branch, year } = req.body;
 
   validateRequiredFields([
     { name: "name", value: name },
@@ -68,7 +68,9 @@ const registerUser = asyncHandler(async (req, res) => {
         email: email.trim().toLowerCase(),
         password: hashedPassword,
         role: userRole,
-        roll_no: roll_no.trim() // ✅ added
+        roll_no: roll_no.trim(), // ✅ added
+        branch: branch || null,
+        year: year || null
       }
     ])
     .select("id, name, email, role, roll_no, created_at") // ✅ include roll_no
