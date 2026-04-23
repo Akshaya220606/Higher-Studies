@@ -382,46 +382,31 @@ async function finalSubmit() {
   try {
     const token = localStorage.getItem("token");
 
-    console.log("docF:", docF);
-
-    // ✅ Validate required files
     if (!docF.hall_ticket || !docF.rank_card) {
       alert("Hall Ticket and Rank Card are required");
       return;
     }
 
-    // 🔥 Get admission_type
     const admissionType = document.getElementById("admissionType")?.value?.trim();
-    console.log("admission_type:", admissionType);
+    const university = document.getElementById("u-college")?.value?.trim();
 
     if (!admissionType) {
       alert("Please select admission type");
       return;
     }
 
-    // 🔥 Get university
-    const university = document.getElementById("u-college")?.value?.trim();
-    console.log("university:", university);
-
     if (!university) {
       alert("Please enter a university/college name");
       return;
     }
 
-    // ✅ Create FormData
+    // ======================
+    // STEP 1: UPLOAD DOCS
+    // ======================
     const formData = new FormData();
 
-    formData.append("admission_type", admissionType);
-    formData.append("university", university);
-
-    // 🔥 Append all files properly
-    if (docF.hall_ticket) {
-      formData.append("hall_ticket", docF.hall_ticket);
-    }
-
-    if (docF.rank_card) {
-      formData.append("rank_card", docF.rank_card);
-    }
+    formData.append("hall_ticket", docF.hall_ticket);
+    formData.append("rank_card", docF.rank_card);
 
     if (docF.allotment) {
       formData.append("seat_allotment", docF.allotment);
@@ -431,42 +416,61 @@ async function finalSubmit() {
       formData.append("admission_letter", docF.admission);
     }
 
-    // ✅ Correct endpoint
-    const url = "http://localhost:5000/api/documents";
-    console.log("Sending request to:", url);
-
-    const response = await fetch(url, {
+    const docRes = await fetch(`${BASE_URL}/documents`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`, // ❗ DO NOT add Content-Type
+        Authorization: `Bearer ${token}`
       },
-      body: formData,
+      body: formData
     });
 
-    console.log("Response status:", response.status);
+    const docData = await docRes.json();
 
-    let result;
-    try {
-      result = await response.json();
-    } catch {
-      const text = await response.text();
-      console.log("Raw response:", text);
-      throw new Error("Invalid JSON response");
-    }
-
-    console.log("RESPONSE:", result);
-
-    if (!response.ok) {
-      alert(result.message || "Submission failed");
+    if (!docRes.ok) {
+      alert(docData.message || "Document upload failed");
       return;
     }
 
-    alert("Documents uploaded successfully!");
+    console.log("Documents uploaded:", docData);
+
+    // ======================
+    // STEP 2: CREATE APPLICATION
+    // ======================
+    const appRes = await fetch(`${BASE_URL}/applications`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        admission_type: admissionType,
+        university: university
+      })
+    });
+
+    const appData = await appRes.json();
+
+    if (!appRes.ok) {
+      alert(appData.message || "Application creation failed");
+      return;
+    }
+
+    console.log("Application created:", appData);
+
+    // ======================
+    // SUCCESS
+    // ======================
+    alert("Application submitted successfully!");
+
     goto("success");
 
+    setTimeout(() => {
+      goto("a-students");
+    }, 800);
+
   } catch (error) {
-    console.error("FULL ERROR:", error);
-    alert(error.message || "Something went wrong");
+    console.error(error);
+    alert("Something went wrong");
   }
 }
 
@@ -520,11 +524,14 @@ function renderTbl(data){
 
   body.innerHTML = data.map(s => `
     <tr>
-      <td>${s.users?.roll_no || "N/A"}</td>
-      <td>${s.users?.name || "N/A"}</td>
-      <td>${s.university}</td>
-      <td>${s.admission_type}</td>
-      <td>${s.status}</td>
+      <td>${s.users?.roll_no || "N/A"}</td>        <!-- ROLL NO -->
+      <td>${s.users?.name || "N/A"}</td>          <!-- NAME -->
+      <td>N/A</td>                                <!-- BRANCH -->
+      <td>N/A</td>                                <!-- YEAR -->
+      <td>${s.admission_type || "N/A"}</td>        <!-- EXAM -->
+      <td>N/A</td>                                <!-- SCORE -->
+      <td>${s.university || "N/A"}</td>            <!-- COLLEGE -->
+      <td>N/A</td>                                <!-- COUNTRY -->
       <td>
         ${s.pdf_url ? `<a href="${s.pdf_url}" target="_blank">View</a>` : "No File"}
       </td>
