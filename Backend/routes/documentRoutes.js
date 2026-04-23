@@ -2,7 +2,8 @@ const express = require("express");
 const multer = require("multer");
 const {
   uploadDocument,
-  getUserDocuments
+  getUserDocuments,
+  getDocumentsByApplicationId   // ✅ NEW
 } = require("../controllers/documentController");
 const { protect } = require("../middlewares/authMiddleware");
 
@@ -35,6 +36,17 @@ router.post(
   @access  Private
 */
 router.get("/documents", protect, getUserDocuments);
+
+/*
+  @route   GET /api/documents/application/:application_id
+  @desc    Get documents for a specific application
+  @access  Private
+*/
+router.get(
+  "/documents/application/:application_id",
+  protect,
+  getDocumentsByApplicationId   // ✅ NEW
+);
 
 /*
   Optional backward-compatible route
