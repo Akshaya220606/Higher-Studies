@@ -16,13 +16,15 @@ const bcrypt = require("bcrypt");
 
 // Register a new user
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, roll_no } = req.body; // 🔥 added roll_no
 
   validateRequiredFields([
     { name: "name", value: name },
     { name: "email", value: email },
-    { name: "password", value: password }
+    { name: "password", value: password },
+    { name: "roll_no", value: roll_no } // 🔥 make roll_no required
   ]);
+
   validateEmail(email);
 
   if (!isNonEmptyString(name)) {
@@ -31,6 +33,10 @@ const registerUser = asyncHandler(async (req, res) => {
 
   if (!isNonEmptyString(password) || password.trim().length < 4) {
     throw new AppError("Password must be at least 4 characters long", 400);
+  }
+
+  if (!isNonEmptyString(roll_no)) {
+    throw new AppError("Roll number must be valid", 400);
   }
 
   const userRole = role || "student";
@@ -50,20 +56,22 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new AppError("User already exists with this email", 409);
   }
 
-  // 🔥 HASH PASSWORD HERE
+  // 🔥 HASH PASSWORD
   const hashedPassword = await bcrypt.hash(password.trim(), 10);
 
+  // 🔥 INSERT WITH roll_no
   const { data, error } = await supabase
     .from("users")
     .insert([
       {
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        password: hashedPassword, // ✅ store hashed password
-        role: userRole
+        password: hashedPassword,
+        role: userRole,
+        roll_no: roll_no.trim() // ✅ added
       }
     ])
-    .select("id, name, email, role, created_at")
+    .select("id, name, email, role, roll_no, created_at") // ✅ include roll_no
     .single();
 
   if (error) {
@@ -74,9 +82,7 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 
-
-// Login user with email and password
-
+// Login user
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -84,12 +90,13 @@ const loginUser = asyncHandler(async (req, res) => {
     { name: "email", value: email },
     { name: "password", value: password }
   ]);
+
   validateEmail(email);
 
-  // 1. Get user by email (including password)
+  // 🔥 include roll_no in select
   const { data: user, error } = await supabase
     .from("users")
-    .select("id, name, email, role, password")
+    .select("id, name, email, role, roll_no, password")
     .eq("email", email.trim().toLowerCase())
     .maybeSingle();
 
@@ -101,24 +108,23 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new AppError("User not found", 404);
   }
 
-  // 2. Compare password using bcrypt
+  // Compare password
   const isMatch = await bcrypt.compare(password.trim(), user.password);
 
   if (!isMatch) {
     throw new AppError("Invalid password", 401);
   }
 
-  // 🔥 3. Generate JWT token
+  // Generate JWT
   const token = jwt.sign(
     { id: user.id, role: user.role },
-    "secretkey", // we will move this to .env later
+    "secretkey",
     { expiresIn: "1d" }
   );
 
-  // 4. Remove password before sending response
+  // Remove password
   delete user.password;
 
-  // 5. Send user + token
   return sendSuccess(res, 200, "Login successful", {
     user,
     token

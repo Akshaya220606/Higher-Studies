@@ -96,7 +96,8 @@ async function doRegister() {
         name,
         email,
         password: pass,
-        role: "student"   // 🔥 important
+        role: "student" ,
+        roll_no: roll   // 🔥 important
       })
     });
 
@@ -510,6 +511,8 @@ function renderTbl(data){
   const body = document.getElementById('tbl-body');
   if(!body) return;
 
+  console.log("TABLE DATA:", data); // debug
+
   if(!data.length){
     body.innerHTML = `<tr><td colspan="6">No applications found</td></tr>`;
     return;
@@ -517,7 +520,8 @@ function renderTbl(data){
 
   body.innerHTML = data.map(s => `
     <tr>
-      <td>${s.user_id}</td>
+      <td>${s.users?.roll_no || "N/A"}</td>
+      <td>${s.users?.name || "N/A"}</td>
       <td>${s.university}</td>
       <td>${s.admission_type}</td>
       <td>${s.status}</td>
