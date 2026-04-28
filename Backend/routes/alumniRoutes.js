@@ -16,3 +16,6 @@ router.get("/alumni", protect, (req, res, next) => {
 }, getAllAlumni);
 
 module.exports = router;
+
+
+// just a comment
